@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Expy</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                user-select: none;
+                touch-action: none;
+                -webkit-user-select: none;
+            }
+            body, canvas {
+                overflow: hidden;
+                width: 100vw;
+                height: 100vh;
+                image-rendering: pixelated;
+                overscroll-behavior: contain;
+            }
+            section{
+                text-align: right;
+                color: black;
+                font-size: 20px;
+                font-family: 'Inter', sans-serif;
+
+                position: absolute;
+                top: 0;
+                right: 0;
+                padding: 25px;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas></canvas>
+        <section>
+        </section>
+        <script type="module" src="/src/main.ts"></script>
+    </body>
+</html>
