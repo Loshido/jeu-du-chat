@@ -1,129 +1,133 @@
-import destr from "destr";
-import { Player, Message } from "./types"
-import type { ServerWebSocket } from "bun";
+import { Player } from "./types.ts";
+import { serveDir } from "jsr:@std/http/file-server"
 
 // Stocke l'état des joueurs
-const players: Map<string, Player> = new Map();
-
-// Stocke les connections en temps réel
-const sockets: Set<ServerWebSocket<{ nom: string }>> = new Set();
+const players: Map<string, {
+    player: Player;
+    socket: WebSocket;
+}> = new Map();
 
 // Stocke le nom du loup / chercheur / chat
 let seeker: string | null = null;
 
-Bun.serve({
-    port: 5174,
-    fetch(req, server) {
-        // On passe en Websocket
-        server.upgrade(req);
-        return new Response('ok');
-    },
-    websocket: {
-        message(ws, message: string) {
-            // string -> Message
-            const msg = destr<Message>(message)
+const handleMessages = (event: MessageEvent, ws: WebSocket) => {
+    // string -> Message
+    const msg = JSON.parse(event.data);
+    // when a player joins
+    if (msg.type === "joining") {
+        // save data
+        players.set(msg.player.nom, {
+            player: msg.player,
+            socket: ws,
+        });
 
-            if(msg.type === 'joining') {
-                ws.data = {
-                    nom: msg.player.nom
-                }
-                players.set(msg.player.nom, msg.player);
-                sockets.add(ws);
-                
-
-                for(const socket of sockets) {
-                    if(socket.data.nom === msg.player.nom) {
-                        continue
-                    }
-                    
-                    socket.send(JSON.stringify({
-                        type: 'joined',
-                        player: msg.player
-                    }))
-                    const player = players.get(socket.data.nom)
-                    if(player) {
-                        ws.send(JSON.stringify({
-                            type: 'joined',
-                            player
-                        }))
-                    }
-                }
-                if(!seeker) {
-                    seeker = msg.player.nom;
-                }
-                ws.send(JSON.stringify({
-                    type: 'seeker',
-                    nom: seeker
-                }))
-            } else if(msg.type === 'move') {
-                const previous_seeker = seeker;
-                const player = players.get(msg.player.nom);
-                if(!player) return; 
-
-                players.set(msg.player.nom, {
-                    ...player,
-                    x: msg.player.x,
-                    y: msg.player.y
-                });
-
-                for(const socket of sockets) {
-                    const nom = socket.data.nom;
-                    if(nom == msg.player.nom) {
-                        continue;
-                    }
-
-                    socket.send(JSON.stringify({
-                        type: 'move',
-                        player: msg.player
-                    }))
-
-                    const socket_player = players.get(nom);
-                    if(!socket_player || seeker !== player.nom) continue;
-
-                    if(Math.floor(socket_player.x) == Math.floor(player.x) && 
-                        Math.floor(socket_player.y) == Math.floor(player.y)) {
-                        seeker = nom;
-                    }
-                }
-
-                if(previous_seeker !== seeker) {
-                    for(const socket of sockets) {
-                        socket.send(JSON.stringify({
-                            type: 'seeker',
-                            nom: seeker
-                        }))
-                    }
-                }
+        players.forEach(({ player, socket }) => {
+            if (player.nom === msg.player.nom) {
+                return;
             }
-        },
-        close(ws) {
-            // On supprime les connections fermés
-            for(const socket of sockets) {
-                if(socket.readyState > 1) {
-                    players.delete(socket.data.nom);
-                    sockets.delete(socket);
-                    continue;
-                }
+
+            // sending to everyone that someone joined
+            socket.send(JSON.stringify({
+                type: "joined",
+                player: msg.player,
+            }));
+
+            // sending him every other player
+            ws.send(JSON.stringify({
+                type: "joined",
+                player,
+            }));
+        });
+
+        // assign new seeker
+        if (!seeker) {
+            seeker = msg.player.nom;
+        }
+        // send seeker's name
+        ws.send(JSON.stringify({
+            type: "seeker",
+            nom: seeker,
+        }));
+    } else if (msg.type === "move") {
+        const previous_seeker = seeker;
+        const data = players.get(msg.player.nom);
+        if (!data) return;
+
+        players.set(msg.player.nom, {
+            player: {
+                ...data.player,
+                x: msg.player.x,
+                y: msg.player.y,
+            },
+            socket: data.socket,
+        });
+
+        players.forEach(({ player, socket }) => {
+            if (player.nom === msg.player.nom) {
+                return;
+            }
+
+            socket.send(JSON.stringify({
+                type: "move",
+                player: msg.player,
+            }));
+
+            if (seeker !== msg.player.nom) return;
+
+            if (
+                Math.floor(msg.player.x) == Math.floor(player.x) &&
+                Math.floor(msg.player.y) == Math.floor(player.y)
+            ) {
+                seeker = player.nom;
+            }
+        });
+
+        // we tell everyone who is the new seeker
+        if (previous_seeker !== seeker) {
+            players.forEach(({ socket }) => {
                 socket.send(JSON.stringify({
-                    type: 'disconnected',
-                    nom: ws.data.nom
+                    type: "seeker",
+                    nom: seeker,
                 }));
-
-                if(seeker === ws.data.nom) {
-                    seeker = null;
-                }
-            }
+            });
         }
     }
-})
+};
 
-
-Bun.spawn({
-    cmd: ['bun', 'dev', '--host'],
-    stdout: 'pipe',
-    stdin: 'pipe',
-    onExit() {
-        console.log(`Webserver stopped`)
+const handleCloses = () => {
+    // deletes disconnected sessions
+    players.forEach(({ player, socket }) => {
+    if (socket.readyState > 1) {
+        players.delete(player.nom);
+        players.forEach((subplayer) => {
+            subplayer.socket.send(JSON.stringify({
+                type: "disconnected",
+                nom: player.nom,
+            }));
+        });
+        if (seeker === player.nom) {
+            seeker = null;
+        }
+        return;
     }
-})
-console.log(`📡 API at http://localhost:5174, Web at http://localhost:5173 !`)
+});
+}
+
+Deno.serve((req) => {
+    if (req.headers.get("upgrade") != "websocket") {
+        return serveDir(req, {
+            fsRoot: './dist'
+        })
+    }
+    const { socket, response } = Deno.upgradeWebSocket(req);
+
+    socket.addEventListener("message", (event) => {
+        handleMessages(event, socket);
+    });
+
+    socket.addEventListener("close", () => {
+        handleCloses()
+    });
+
+    return response;
+});

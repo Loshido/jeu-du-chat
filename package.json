@@ -9,11 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.5",
     "typescript": "~5.7.2",
     "vite": "^6.2.0"
-  },
-  "dependencies": {
-    "destr": "^2.0.3"
   }
 }
