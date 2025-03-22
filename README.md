@@ -36,3 +36,10 @@ The state of the game is kept using a `Map`.
 We use the Canvas API to render the app, it is based on a grid system and Websocket API to communicate with the backend.
 
 I created tools (to keep a layer of abstraction) in separated files as Class. But the magic happens in a [function](./src/main.ts:95) that is executed every frame (`requestAnimationFrame`).
+
+#### Commands
+
+`deno install` -> install dependencies (vite & ts)
+`deno task build` -> build the frontend (ts -> js + html to dist)
+`deno run --allow-net --allow-read=./dist app/index.ts` -> start the server (serves static files & handle WS connections)
+`docker build -t chat .` -> build the docker image
