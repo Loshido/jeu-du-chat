@@ -64,7 +64,7 @@ const ws = connect({
         seeker = nom;
         d.set('seeker', local.nom === seeker ? 'Tu es le chat! 🐈' : `Le chat est '${seeker}' 🐈‍⬛`)
     },
-})
+}, location.origin)
 
 ws.addEventListener('open', () => {
     // On se présente lorsqu'on est connecté
