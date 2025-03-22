@@ -1,5 +1,3 @@
-import { CELL } from "./main"
-
 export default class Carte {
     private canvas: HTMLCanvasElement
     ctx: CanvasRenderingContext2D

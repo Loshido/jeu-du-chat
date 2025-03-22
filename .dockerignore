@@ -1,0 +1,8 @@
+dist
+.vscode
+.gitignore
+.git
+Dockerfile
+README.md
+*.log
+_build/
