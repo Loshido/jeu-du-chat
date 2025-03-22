@@ -40,6 +40,9 @@ I created tools (to keep a layer of abstraction) in separated files as Class. Bu
 #### Commands
 
 `deno install` -> install dependencies (vite & ts)
+
 `deno task build` -> build the frontend (ts -> js + html to dist)
+
 `deno run --allow-net --allow-read=./dist app/index.ts` -> start the server (serves static files & handle WS connections)
+
 `docker build -t chat .` -> build the docker image
